@@ -35,8 +35,8 @@ jobs:
         shell: bash
         run: npx vitest run > /dev/null 2>&1
       - run: npm run dist -- --publish never
-      # Se publica de una vez y con los tres archivos: nadie ve una versión a medias
-      - name: Publicar
+      # Queda en borrador: scripts/publicar.mjs (repositorio privado) la firma y la hace pública
+      - name: Dejar en borrador
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,4 +44,3 @@ jobs:
         run: |
           V="${ETIQUETA#v}"
           gh release create "$ETIQUETA" "dist/Instalador-SalaLista-$V.exe" "dist/Instalador-SalaLista-$V.exe.blockmap" dist/latest.yml -R "$GITHUB_REPOSITORY" --draft --title "SalaLista $V" --notes-file build/release-notes.md
-          gh release edit "$ETIQUETA" -R "$GITHUB_REPOSITORY" --draft=false --latest
