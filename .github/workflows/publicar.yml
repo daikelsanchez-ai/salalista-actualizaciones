@@ -1,0 +1,47 @@
+# Construye SalaLista desde el repositorio privado y publica el instalador aquí.
+# Se lanza a mano con la etiqueta de la versión (por ejemplo v1.6.1).
+name: Publicar SalaLista
+on:
+  workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: 'Etiqueta de la versión (v1.6.1)'
+        required: true
+permissions:
+  contents: write
+concurrency: publicar
+jobs:
+  publicar:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: daikelsanchez-ai/salalista
+          ref: refs/tags/${{ inputs.etiqueta }}
+          ssh-key: ${{ secrets.LLAVE_SOLO_LECTURA }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: npm ci
+      - name: La etiqueta coincide con package.json
+        shell: bash
+        env:
+          ETIQUETA: ${{ inputs.etiqueta }}
+        run: test "$ETIQUETA" = "v$(node -p "require('./package.json').version")"
+      # Las pruebas van sin salida: este registro es público
+      - name: Pruebas
+        shell: bash
+        run: npx vitest run > /dev/null 2>&1
+      - run: npm run dist -- --publish never
+      # Se publica de una vez y con los tres archivos: nadie ve una versión a medias
+      - name: Publicar
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ETIQUETA: ${{ inputs.etiqueta }}
+        run: |
+          V="${ETIQUETA#v}"
+          gh release create "$ETIQUETA" "dist/Instalador-SalaLista-$V.exe" "dist/Instalador-SalaLista-$V.exe.blockmap" dist/latest.yml -R "$GITHUB_REPOSITORY" --draft --title "SalaLista $V" --notes-file build/release-notes.md
+          gh release edit "$ETIQUETA" -R "$GITHUB_REPOSITORY" --draft=false --latest
